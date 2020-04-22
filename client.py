@@ -6,8 +6,28 @@ from loguru import logger
 
 loop = asyncio.get_event_loop()
 
+# TODO: 信号量限制并发数
+sem = asyncio.Semaphore(1000)
+
 clients = []
 disconnect_clients = []
+reconnect_clients = []
+fail_connect = 0
+fail_leave = 0
+fail_reconnect = 0
+
+
+def stat():
+    logger.info(f"clients count {len(clients)}")
+    logger.info(f"disconnect clients count {len(disconnect_clients)}")
+    logger.info(f"reconnect clients count {len(reconnect_clients)}")
+
+    logger.info(f"fail connect count {fail_connect}")
+    logger.info(f"fail leave count {fail_leave}")
+    logger.info(f"fail reconnect count {fail_reconnect}")
+
+    total = len(clients) + len(disconnect_clients) + fail_connect
+    logger.debug(f"total connect count {total}")
 
 
 async def test_server():
@@ -18,13 +38,14 @@ async def test_server():
     # ulimit -n 4096 , 247
     tasks = []
     start = time.perf_counter()
-    # semaphore = asyncio.Semaphore(50)
-    for _ in range(1000):
+
+    for _ in range(3000):
         tasks.append(test())
-        # tasks.append(test(semaphore))
 
     await asyncio.gather(*tasks)
-    logger.debug(f"clients count {len(clients)}")
+
+    # stat
+    stat()
 
     elapsed = time.perf_counter() - start
     print(f"{__file__} executed in {elapsed:0.2f} seconds.")
@@ -38,20 +59,21 @@ async def test():
     await test_reconnect()
 
 
-async def test_with_semaphore(semaphore):
-    client = socketio.AsyncClient()
-    async with semaphore:
+async def test_with_sem():
+    with (await sem):
+        client = socketio.AsyncClient()
         await test_connect(client)
         await test_leave(client)
         await test_reconnect()
 
 
 async def test_connect(client):
-    # await asyncio.sleep(1 / 500)
     try:
         await client.connect("http://localhost:8110")
         clients.append(client)
     except Exception:
+        global fail_connect
+        fail_connect += 1
         logger.error(f"failed to connect {id(client)}")
 
 
@@ -63,19 +85,21 @@ async def test_leave(client):
             clients.remove(client)
             disconnect_clients.append(client)
         except Exception:
+            global fail_leave
+            fail_leave += 1
             logger.error(f"failed to leave {id(client)}")
 
 
 async def test_reconnect():
     number = random.randint(0, 50)
-    total = len(disconnect_clients)
-    if number <= 2 and total > 0:
+    if number <= 2:
         try:
-            client = random.choice(disconnect_clients)
+            client = socketio.AsyncClient()
             await client.connect("http://localhost:8110")
-            disconnect_clients.remove(client)
-            clients.append(client)
+            reconnect_clients.append(client)
         except Exception:
+            global fail_reconnect
+            fail_reconnect += 1
             logger.error(f"failed to reconnect {id(client)}")
 
 
