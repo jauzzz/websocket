@@ -16,19 +16,24 @@ async def test_server():
     """
 
     # ulimit -n 4096 , 247
+    tasks = []
     start = time.perf_counter()
-    for i in range(1000):
-        # logger.info(f"client {i} initial...")
-        client = socketio.AsyncClient()
-        await test_connect(client)
-        await test_leave(client)
-        await test_reconnect()
+    for _ in range(1000):
+        tasks.append(test())
 
+    await asyncio.gather(*tasks)
     logger.debug(f"clients count {len(clients)}")
 
     elapsed = time.perf_counter() - start
     print(f"{__file__} executed in {elapsed:0.2f} seconds.")
     # await asyncio.sleep(3)
+
+
+async def test():
+    client = socketio.AsyncClient()
+    await test_connect(client)
+    await test_leave(client)
+    await test_reconnect()
 
 
 async def test_connect(client):
