@@ -18,8 +18,10 @@ async def test_server():
     # ulimit -n 4096 , 247
     tasks = []
     start = time.perf_counter()
+    # semaphore = asyncio.Semaphore(50)
     for _ in range(1000):
         tasks.append(test())
+        # tasks.append(test(semaphore))
 
     await asyncio.gather(*tasks)
     logger.debug(f"clients count {len(clients)}")
@@ -36,31 +38,49 @@ async def test():
     await test_reconnect()
 
 
+async def test_with_semaphore(semaphore):
+    client = socketio.AsyncClient()
+    async with semaphore:
+        await test_connect(client)
+        await test_leave(client)
+        await test_reconnect()
+
+
 async def test_connect(client):
     # await asyncio.sleep(1 / 500)
-    await client.connect("http://localhost:8110")
-    clients.append(client)
+    try:
+        await client.connect("http://localhost:8110")
+        clients.append(client)
+    except Exception:
+        logger.error(f"failed to connect {id(client)}")
 
 
 async def test_leave(client):
     number = random.randint(0, 9)
     if number < 3:
-        await client.disconnect()
-        clients.remove(client)
-        disconnect_clients.append(client)
+        try:
+            await client.disconnect()
+            clients.remove(client)
+            disconnect_clients.append(client)
+        except Exception:
+            logger.error(f"failed to leave {id(client)}")
 
 
 async def test_reconnect():
     number = random.randint(0, 50)
     total = len(disconnect_clients)
     if number <= 2 and total > 0:
-        client = random.choice(disconnect_clients)
-        await client.connect("http://localhost:8110")
-        disconnect_clients.remove(client)
-        clients.append(client)
+        try:
+            client = random.choice(disconnect_clients)
+            await client.connect("http://localhost:8110")
+            disconnect_clients.remove(client)
+            clients.append(client)
+        except Exception:
+            logger.error(f"failed to reconnect {id(client)}")
 
 
 if __name__ == "__main__":
     # task
-    loop.create_task(test_server())
-    loop.run_forever()
+    # loop.create_task(test_server())
+    # loop.run_forever()
+    loop.run_until_complete(test_server())
