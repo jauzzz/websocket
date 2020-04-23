@@ -39,13 +39,14 @@ async def test_server():
     tasks = []
     start = time.perf_counter()
 
-    for _ in range(3000):
+    for _ in range(1000):
         tasks.append(test())
 
     await asyncio.gather(*tasks)
 
     # stat
     stat()
+    await get_count()
 
     elapsed = time.perf_counter() - start
     print(f"{__file__} executed in {elapsed:0.2f} seconds.")
@@ -69,7 +70,7 @@ async def test_with_sem():
 
 async def test_connect(client):
     try:
-        await client.connect("http://localhost:8110")
+        await client.connect("http://localhost:8080", namespaces=["live"])
         clients.append(client)
     except Exception:
         global fail_connect
@@ -95,12 +96,26 @@ async def test_reconnect():
     if number <= 2:
         try:
             client = socketio.AsyncClient()
-            await client.connect("http://localhost:8110")
+            await client.connect("http://localhost:8080", namespaces=["live"])
             reconnect_clients.append(client)
         except Exception:
             global fail_reconnect
             fail_reconnect += 1
             logger.error(f"failed to reconnect {id(client)}")
+
+
+async def get_count():
+    # Server count
+    logger.info("getting count...")
+
+    try:
+        client = socketio.AsyncClient()
+
+        await client.connect("http://localhost:8080", namespaces=["live"])
+        await client.emit("people_count", {}, namespace="live")
+
+    except Exception:
+        logger.error("failed to get count")
 
 
 if __name__ == "__main__":
