@@ -44,10 +44,14 @@ def get_middlewares():
 
 def init_websocket(app):
     from websocket.liveroom.views import LiveRoomNamespace
+    from websocket.liveroom.events import LiveBaseNamespace
+    from websocket.playback.events import PlayBackNamespace
 
     sio = socketio.AsyncServer(async_mode="aiohttp")
     sio.attach(app)
     sio.register_namespace(LiveRoomNamespace("/liveroom"))
+    sio.register_namespace(LiveBaseNamespace("/live_socket"))
+    sio.register_namespace(PlayBackNamespace("/play_back_socket"))
 
 
 async def start_plugins(app):

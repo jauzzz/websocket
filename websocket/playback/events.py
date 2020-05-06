@@ -8,7 +8,7 @@ import string
 import hashlib
 import logging
 import redis
-from websocket.conf import status_code as error_code
+from websocket import status_code as error_code
 
 logger = logging.getLogger(__name__)
 
