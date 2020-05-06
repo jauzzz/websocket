@@ -1,21 +1,13 @@
+import os
+
 # SIMPLE SETTINGS STUFF
-SIMPLE_SETTINGS = {
-    'OVERRIDE_BY_ENV': True,
-    'CONFIGURE_LOGGING': True
-}
+SIMPLE_SETTINGS = {"OVERRIDE_BY_ENV": True, "CONFIGURE_LOGGING": True}
 
 # REDIS AND CACHE
-REDIS_HOST = '127.0.0.1'
+REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
 
-CACHE = {
-    'default': {
-        'cache': 'aiocache.RedisCache',
-        'endpoint': REDIS_HOST,
-        'port': int(REDIS_PORT),
-        'timeout': 1
-    }
-}
+CACHE = {"default": {"cache": "aiocache.RedisCache", "endpoint": REDIS_HOST, "port": int(REDIS_PORT), "timeout": 1}}
 
 # TIME CONSTS
 SECONDS = 1
@@ -24,31 +16,17 @@ HOURS = MINUTES * 60
 DAYS = HOURS * 24
 
 LOGGING = {
-    'version': 1,
-    'formatters': {
-        'verbose': {
-            'format': '[%(asctime)s] [%(process)d] [%(levelname)s] %(name)s:%(lineno)d - %(message)s'  # noqa
-        },
-        'simple': {
-            'format': '%(levelname)s %(name)s %(message)s'
-        }
+    "version": 1,
+    "formatters": {
+        "verbose": {"format": "[%(asctime)s] [%(process)d] [%(levelname)s] %(name)s:%(lineno)d - %(message)s"},  # noqa
+        "simple": {"format": "%(levelname)s %(name)s %(message)s"},
     },
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
+    "handlers": {"console": {"level": "INFO", "class": "logging.StreamHandler", "formatter": "verbose"}},
+    "loggers": {
+        "": {"handlers": ["console"], "level": "INFO", "propagate": True},
+        "asyncio": {"level": "WARNING", "propagate": True},
     },
-    'loggers': {
-        '': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'asyncio': {
-            'level': 'WARNING',
-            'propagate': True,
-        }
-    }
 }
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMPLATE_DIR = os.path.join(BASE_DIR, "template")

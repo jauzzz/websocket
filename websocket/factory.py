@@ -1,12 +1,16 @@
 import socketio
 
+import aiohttp_jinja2
+import jinja2
 from aiocache import caches
 from aiohttp import web
 from aiohttp_swagger import setup_swagger
 from simple_settings import settings
 
 from .healthcheck.routes import register_routes as register_heathcheck_routes
+from .index.routes import register_routes as register_index_routes
 from .contrib.middlewares import exception_handler_middleware, version_middleware
+from .settings.base import TEMPLATE_DIR
 
 
 def build_app(loop=None):
@@ -16,6 +20,7 @@ def build_app(loop=None):
     app.on_cleanup.append(stop_plugins)
 
     setup_swagger(app, swagger_url="/docs", swagger_from_file="docs/swagger.yaml")
+    setup_template_routes(app)
 
     register_routes(app)
 
@@ -24,8 +29,13 @@ def build_app(loop=None):
     return app
 
 
+def setup_template_routes(app):
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(TEMPLATE_DIR))
+
+
 def register_routes(app):
     register_heathcheck_routes(app)
+    register_index_routes(app)
 
 
 def get_middlewares():
@@ -33,11 +43,11 @@ def get_middlewares():
 
 
 def init_websocket(app):
-    from websocket.liveroom.views import LiveNamespace
+    from websocket.liveroom.views import LiveRoomNamespace
 
     sio = socketio.AsyncServer(async_mode="aiohttp")
     sio.attach(app)
-    sio.register_namespace(LiveNamespace("/live"))
+    sio.register_namespace(LiveRoomNamespace("/liveroom"))
 
 
 async def start_plugins(app):

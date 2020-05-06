@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>聊天以及回放测试</title>
+    </head>
+    <body>
+    <div>
+       <h1>chat</h1>
+        <form method="GET" action="{{ url('Enter') }}" >
+            <p><input type=text name="user_id" placeholder="用户id"></p>
+            <p><input type=text name="room" placeholder="用户房间id"></p>
+            <button>进入聊天室</button>
+        </form>
+    </div>
+
+    <div>
+        <p></p>
+        <p></p>
+        <p></p>
+        <form method="GET" action="{{ url('EnterPlayback') }}" >
+            <p><input type=text name="use_id" placeholder="用户id"></p>
+            <p><input type=text name="room_id" placeholder="用户房间id"></p>
+            <p><input type=text name="playback_data_id" placeholder="回放id"></p>
+            <p><button>进入回放房间</button></p>
+        </form>
+    </div>
+    </body>
+</html>
+
