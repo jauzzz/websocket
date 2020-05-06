@@ -28,18 +28,12 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
     # init flag
     _init_redis = False
 
-    # redis db
-    # 断开连接用户信息库
-    # disconnect_user = redis.Redis(host="localhost", port=6379, decode_responses=True, db=0)
-    # # 连接用户信息库
-    # connect_user = redis.Redis(host="localhost", port=6379, decode_responses=True, db=1)
-    # # sid直播用户信息库
-    # sid_user_live = redis.Redis(host="localhost", port=6379, decode_responses=True, db=2)
-
     async def init_redis(self):
-        self.disconnect_user = await aioredis.create_redis_pool("redis://localhost", db=0)
-        self.connect_user = await aioredis.create_redis_pool("redis://localhost", db=1)
-        self.sid_user_live = await aioredis.create_redis_pool("redis://localhost", db=2)
+        self.disconnect_user = await aioredis.create_redis_pool("redis://localhost", db=0, encoding="utf-8")
+        self.connect_user = await aioredis.create_redis_pool(
+            "redis://localhost", db=1, encoding="utf-8", minsize=1, maxsize=1
+        )
+        self.sid_user_live = await aioredis.create_redis_pool("redis://localhost", db=2, encoding="utf-8")
         self._init_redis = True
 
     # ------------ stat --------------
@@ -120,17 +114,18 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
         return await self.connect_user.get(keyname)
 
     async def get_room_max_user(self, room_id: str) -> int:
-        max_user = int(await self.get_system_limit())
-        room_max_user = int(await self.get_room_limit(room_id))
-        return max(max_user, room_max_user)
+        # max_user = int(await self.get_system_limit())
+        # room_max_user = int(await self.get_room_limit(room_id))
+        # return max(max_user, room_max_user)
+        return 200
 
-    async def get_room_exists_user(self, room_id: str) -> int:
-        return len(await self.connect_user.hkeys(room_id))
+    async def get_room_exists_user(self, room_id: str, connect_db) -> int:
+        return len(await connect_db.hkeys(room_id))
 
-    async def exceed_max_user_check(self, uid, room_id) -> bool:
+    async def exceed_max_user_check(self, uid, room_id, connect_db) -> bool:
         """ 超过最大房间人数检测 """
         max_user = await self.get_room_max_user(room_id)
-        room_user = await self.get_room_exists_user(room_id)
+        room_user = await self.get_room_exists_user(room_id, connect_db)
 
         # for test
         # return False
@@ -138,9 +133,9 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
         logger.info(f"房间 {room_id}: {room_user} 人 | 最大 {max_user}")
         return room_user >= max_user
 
-    async def duplicate_join_check(self, uid, room_id) -> bool:
+    async def duplicate_join_check(self, uid, room_id, connect_db) -> bool:
         """ 重复加入房间检测 """
-        user_exists = await self.connect_user.hexists(room_id, uid)
+        user_exists = await connect_db.hexists(room_id, uid)
         if user_exists:
             logger.error(f"duplicate join {room_id} {uid}")
         return user_exists
@@ -151,11 +146,11 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
         disconnect_exists = await self.disconnect_user.exists(keyname)
         return disconnect_exists
 
-    async def update_user_join_info(self, sid, uid, room_id, leave_tag):
+    async def update_user_join_info(self, sid, uid, room_id, leave_tag, connect_db):
         """ 加入房间后，更新用户连接信息 """
-        logger.info(f"更新redis信息, 客户端 {sid} 用户 {uid} 加入房间 {room_id}，离开类型{leave_tag}")
+        logger.info(f"更新redis信息, 客户端 {sid} 用户 {uid} 加入房间 {room_id}，离开类型 {leave_tag}")
         open_time = int(time.time())
-        await self.connect_user.hset(room_id, uid, sid)
+        await connect_db.hset(room_id, uid, sid)
         await self.sid_user_live.hset(sid, "user_id", uid)
         await self.sid_user_live.hset(sid, "room_id", room_id)
         await self.sid_user_live.hset(sid, "leave_tag", leave_tag)
@@ -176,19 +171,19 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
         else:
             logger.info(f"异常退出 {sid}")
             logger.info(f"values: {uid} {room_id} {leave_tag} {open_time}")
-            # self.leave_room(sid, room_id)
+            self.leave_room(sid, room_id)
 
         # 判断 leave_tag
         if leave_tag == 1:
-            keyname = room_id.decode() + "_" + uid.decode()
+            keyname = room_id + "_" + uid
             logger.info(f"网络波动 {sid} 设置keyname {keyname}")
             await self.disconnect_user.set(keyname, uid, expire=60)
 
-        # 正常 disconnect（已加入房间）
-        if uid and room_id:
+        # 正常 disconnect
+        if room_id and uid:
             await self.connect_user.hdel(room_id, uid)
             await self.sid_user_live.delete(sid)
-            # self.leave_room(sid, room_id)
+            self.leave_room(sid, room_id)
 
     # ------------ events --------------
     async def on_connect(self, sid, environ):
@@ -238,31 +233,31 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
             await self.emit("system", {"code": error_code.PARAMETER_IS_NOT_COMPLETE, "msg": "加入房间失败,参数不全"}, room=sid)
             await self.disconnect(sid)
 
-        # 重复加入检测
-        duplicate_flag = await self.duplicate_join_check(uid, room_id)
-        if duplicate_flag is True:
-            logger.error("重复加入 {uid}")
-            await self.emit("system", {"code": error_code.SUCCESS, "msg": "加入房间失败,建立重复链接"}, room=sid)
-            await self.disconnect(sid)
+        with await self.connect_user as connect_db:
 
-        # 最大人数检测
-        max_flag = await self.exceed_max_user_check(uid, room_id)
-        if max_flag is True:
-            logger.error("超过最大人数 {uid}")
-            await self.emit(
-                "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
-            )
-            await self.disconnect(sid)
+            # 重复加入检测
+            duplicate_flag = await self.duplicate_join_check(uid, room_id, connect_db)
+            if duplicate_flag is True:
+                await self.emit("system", {"code": error_code.SUCCESS, "msg": "加入房间失败,建立重复链接"}, room=sid)
+                await self.disconnect(sid)
 
-        # 进入房间（重连、未超过人数正常进入）
-        reconnect_flag = await self.reconnect_join_check(uid, room_id)
-        if reconnect_flag is True or max_flag is False:
-            leave_tag = 1
-            self.enter_room(sid, room_id)
-            await self.update_user_join_info(sid, uid, room_id, leave_tag)
-            self.stat_success_join(sid, uid, room_id)
-        else:
-            logger.error(f"{sid} {uid} {room_id} join failed")
+            # 最大人数检测
+            max_flag = await self.exceed_max_user_check(uid, room_id, connect_db)
+            if max_flag is True:
+                await self.emit(
+                    "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
+                )
+                await self.disconnect(sid)
+
+            # 进入房间（重连、未超过人数正常进入）
+            reconnect_flag = await self.reconnect_join_check(uid, room_id)
+            if reconnect_flag is True or max_flag is False:
+                leave_tag = 1
+                self.enter_room(sid, room_id)
+                await self.update_user_join_info(sid, uid, room_id, leave_tag, connect_db)
+                self.stat_success_join(sid, uid, room_id)
+            else:
+                logger.error(f"{sid} {uid} {room_id} join failed")
 
     async def on_leave(self, sid, data):
         self.stat_leave(sid)
