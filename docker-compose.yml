@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  socketio:
+    build:
+      context: .
+    image: broadcast_back_end_socketio
+    container_name: broadcast_back_end.socketio
+    depends_on:
+      - redis
+    ports:
+      - "8200:8200"
+    command: ["make", "run"]
+
+  redis:
+    image: redis:5.0
+    container_name: websocket.redis

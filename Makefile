@@ -1,5 +1,5 @@
 run:
-	@gunicorn websocket:app --bind localhost:8080 --worker-class aiohttp.worker.GunicornUVLoopWebWorker -e SIMPLE_SETTINGS=websocket.settings.development
+	@gunicorn websocket:app --bind 0.0.0.0:8200 --worker-class aiohttp.worker.GunicornUVLoopWebWorker -e SIMPLE_SETTINGS=websocket.settings.development
 
 requirements-test:
 	@pip install -r requirements/test.txt
