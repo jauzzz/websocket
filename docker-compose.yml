@@ -5,7 +5,7 @@ services:
     build:
       context: .
     image: broadcast_back_end_socketio
-    container_name: broadcast_back_end.socketio
+    container_name: websocket.socketio
     depends_on:
       - redis
     ports:

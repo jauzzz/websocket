@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import aiohttp
 import socketio
 import logging
 import redis
@@ -14,11 +15,11 @@ log = print
 logger = logging.getLogger(__name__)
 
 # 断开连接用户信息库
-disconnect_user = redis.Redis(host="localhost", port=6379, decode_responses=True, db=0)
+disconnect_user = redis.Redis(host="redis", port=6379, decode_responses=True, db=0)
 # 连接用户信息库
-connect_user = redis.Redis(host="localhost", port=6379, decode_responses=True, db=1)
+connect_user = redis.Redis(host="redis", port=6379, decode_responses=True, db=1)
 # sid直播用户信息库
-sid_user_live = redis.Redis(host="localhost", port=6379, decode_responses=True, db=2)
+sid_user_live = redis.Redis(host="redis", port=6379, decode_responses=True, db=2)
 
 
 # 基于类的名称空间
@@ -193,13 +194,24 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
             self.leave_room(sid, room)
 
     async def update_data(self, data):
+        # 异步发送数据更新请求
+        # 本地测试
+        # url = 'http://0.0.0.0:8800/livesocket/create_user_live_duration/'
+        # 测试服务器端
+        url = 'http://beta.yingliboke.cn/api/livesocket/create_user_live_duration/'
+        # 生产服务器端
+        # url = 'https://www.yingliboke.cn/api/livesocket/create_user_live_duration/'
         try:
-            keyname = "user_live_duration"
-            data_save = json.dumps(data)
-            connect_user.rpush(keyname, data_save)
-            log("保存直播在线数据成功")
-            logger.info("保存直播在线数据成功")
-
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=data) as resp:
+                    print(resp.status)
+                    res = await resp.json()
+                    if res['code'] == 20000:
+                        print('更新直播在线数据成功')
+                        logger.info('更新直播在线数据成功')
+                    else:
+                        print(res['msg'])
+                        logger.info(res['msg'])
         except Exception as ex:
             logger.exception(ex)
 

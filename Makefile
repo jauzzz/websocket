@@ -37,3 +37,6 @@ release-major: ## Create major release
 	SIMPLE_SETTINGS=websocket.settings.test bump2version major --dry-run --no-tag --no-commit --list | grep new_version= | sed -e 's/new_version=//' | xargs -n 1 towncrier --yes --version
 	git commit -am 'Update CHANGELOG'
 	bump2version major
+
+%.logs: ## Container log
+	docker-compose -f docker-compose.yml logs -f $*

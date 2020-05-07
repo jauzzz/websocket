@@ -6,12 +6,12 @@ import random
 import string
 import hashlib
 import aioredis
-import socketio
+from socketio import AsyncNamespace
 from websocket import status_code as error_code
 from loguru import logger
 
 
-class LiveRoomNamespace(socketio.AsyncNamespace):
+class LiveRoomNamespace(AsyncNamespace):
 
     # stat count
     connect_count = 0
@@ -29,12 +29,15 @@ class LiveRoomNamespace(socketio.AsyncNamespace):
     _init_redis = False
 
     async def init_redis(self):
-        self.disconnect_user = await aioredis.create_redis_pool("redis://localhost", db=0, encoding="utf-8")
-        self.connect_user = await aioredis.create_redis_pool(
-            "redis://localhost", db=1, encoding="utf-8", minsize=1, maxsize=1
-        )
-        self.sid_user_live = await aioredis.create_redis_pool("redis://localhost", db=2, encoding="utf-8")
-        self._init_redis = True
+        try:
+            self.disconnect_user = await aioredis.create_redis_pool(("redis", "6379"), db=0, encoding="utf-8")
+            self.connect_user = await aioredis.create_redis_pool(
+                ("redis", "6379"), db=1, encoding="utf-8", minsize=1, maxsize=1
+            )
+            self.sid_user_live = await aioredis.create_redis_pool(("redis", "6379"), db=2, encoding="utf-8")
+            self._init_redis = True
+        except Exception as ex:
+            logger.error(ex)
 
     # ------------ stat --------------
     def stat_connect(self, sid):

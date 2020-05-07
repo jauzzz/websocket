@@ -47,7 +47,8 @@ def init_websocket(app):
     from websocket.liveroom.events import LiveBaseNamespace
     from websocket.playback.events import PlayBackNamespace
 
-    sio = socketio.AsyncServer(async_mode="aiohttp")
+    mgr = socketio.AsyncRedisManager("redis://redis:6379/4")
+    sio = socketio.AsyncServer(async_mode="aiohttp", ping_timeout=62, client_manager=mgr, cors_allowed_origins="*")
     sio.attach(app)
     sio.register_namespace(LiveRoomNamespace("/liveroom"))
     sio.register_namespace(LiveBaseNamespace("/live_socket"))
