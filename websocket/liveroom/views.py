@@ -7,6 +7,7 @@ import string
 import hashlib
 import aioredis
 from socketio import AsyncNamespace
+from simple_settings import settings
 from websocket import status_code as error_code
 from loguru import logger
 
@@ -30,11 +31,15 @@ class LiveRoomNamespace(AsyncNamespace):
 
     async def init_redis(self):
         try:
-            self.disconnect_user = await aioredis.create_redis_pool(("redis", "6379"), db=0, encoding="utf-8")
-            self.connect_user = await aioredis.create_redis_pool(
-                ("redis", "6379"), db=1, encoding="utf-8", minsize=1, maxsize=1
+            self.disconnect_user = await aioredis.create_redis_pool(
+                (settings.REDIS_HOST, settings.REDIS_PORT), db=0, encoding="utf-8"
             )
-            self.sid_user_live = await aioredis.create_redis_pool(("redis", "6379"), db=2, encoding="utf-8")
+            self.connect_user = await aioredis.create_redis_pool(
+                (settings.REDIS_HOST, settings.REDIS_PORT), db=1, encoding="utf-8", minsize=1, maxsize=1
+            )
+            self.sid_user_live = await aioredis.create_redis_pool(
+                (settings.REDIS_HOST, settings.REDIS_PORT), db=2, encoding="utf-8"
+            )
             self._init_redis = True
         except Exception as ex:
             logger.error(ex)
@@ -117,10 +122,9 @@ class LiveRoomNamespace(AsyncNamespace):
         return await self.connect_user.get(keyname)
 
     async def get_room_max_user(self, room_id: str) -> int:
-        # max_user = int(await self.get_system_limit())
-        # room_max_user = int(await self.get_room_limit(room_id))
-        # return max(max_user, room_max_user)
-        return 200
+        max_user = int(await self.get_system_limit())
+        room_max_user = int(await self.get_room_limit(room_id))
+        return max(max_user, room_max_user)
 
     async def get_room_exists_user(self, room_id: str, connect_db) -> int:
         return len(await connect_db.hkeys(room_id))

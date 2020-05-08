@@ -1,4 +1,7 @@
 run:
+	@gunicorn websocket:app --bind 0.0.0.0:8200 --worker-class aiohttp.worker.GunicornUVLoopWebWorker -e SIMPLE_SETTINGS=websocket.settings.production
+
+dev.run:
 	@gunicorn websocket:app --bind 0.0.0.0:8200 --worker-class aiohttp.worker.GunicornUVLoopWebWorker -e SIMPLE_SETTINGS=websocket.settings.development
 
 requirements-test:
@@ -40,3 +43,6 @@ release-major: ## Create major release
 
 %.logs: ## Container log
 	docker-compose -f docker-compose.yml logs -f $*
+
+%-shell: ## Container shell
+	docker-compose -f docker-compose.yml exec $* sh

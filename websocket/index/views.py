@@ -3,6 +3,7 @@ import aioredis
 import json
 import aiohttp_jinja2
 from aiohttp import web
+from simple_settings import settings
 
 
 class IndexView(web.View):
@@ -46,12 +47,12 @@ class EnterPlaybackView(web.View):
 
 
 async def get_room_number(request):
-    connect_user = await aioredis.create_redis_pool("redis://localhost", db=1)
+    connect_user = await aioredis.create_redis_pool(f"redis://{settings.REDIS_HOST}", db=1)
     data = request.query
     room_id = data["room_id"]
     if room_id == "":
         msg = {"code": 19999, "error_msg": "获取失败"}
     else:
-        count = len(connect_user.hkeys(room_id))
+        count = len(await connect_user.hkeys(room_id))
         msg = {"code": 20000, "room": room_id, "count": count}
     return web.Response(text=json.dumps(msg))

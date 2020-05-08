@@ -9,17 +9,18 @@ import string
 import hashlib
 import requests
 import json
+from simple_settings import settings
 from websocket import status_code as error_code
 
 log = print
 logger = logging.getLogger(__name__)
 
 # 断开连接用户信息库
-disconnect_user = redis.Redis(host="redis", port=6379, decode_responses=True, db=0)
+disconnect_user = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=0)
 # 连接用户信息库
-connect_user = redis.Redis(host="redis", port=6379, decode_responses=True, db=1)
+connect_user = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=1)
 # sid直播用户信息库
-sid_user_live = redis.Redis(host="redis", port=6379, decode_responses=True, db=2)
+sid_user_live = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=2)
 
 
 # 基于类的名称空间
@@ -48,10 +49,10 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                 print("建立重复链接", int(time.time()))
                 logger.info("建立重复链接")
                 print("新连接", sid)
-                logger.info("新连接", sid)
+                logger.info(f"新连接 {sid}")
                 sid2 = connect_user.hget(room, user_id)
                 print("旧连接", sid2)
-                logger.info("旧连接", sid2)
+                logger.info(f"旧连接 {sid2}")
                 if sid != sid2:
                     # 断开前置链接
                     await self.disconnect(sid2)
@@ -165,7 +166,7 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                 keyname2 = "%s_limit_number" % room
                 print("3", keyname1, all_sum)
                 print(keyname2, len(connect_user.hkeys(room)))
-                logger.info("3", keyname1, all_sum)
+                logger.info(f"3 {keyname1} {all_sum}")
                 logger.info(keyname2, len(connect_user.hkeys(room)))
 
             # 从sid库中删除
@@ -198,7 +199,7 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
         # 本地测试
         # url = 'http://0.0.0.0:8800/livesocket/create_user_live_duration/'
         # 测试服务器端
-        url = 'http://beta.yingliboke.cn/api/livesocket/create_user_live_duration/'
+        url = "http://beta.yingliboke.cn/api/livesocket/create_user_live_duration/"
         # 生产服务器端
         # url = 'https://www.yingliboke.cn/api/livesocket/create_user_live_duration/'
         try:
@@ -206,12 +207,12 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                 async with session.post(url, json=data) as resp:
                     print(resp.status)
                     res = await resp.json()
-                    if res['code'] == 20000:
-                        print('更新直播在线数据成功')
-                        logger.info('更新直播在线数据成功')
+                    if res["code"] == 20000:
+                        print("更新直播在线数据成功")
+                        logger.info("更新直播在线数据成功")
                     else:
-                        print(res['msg'])
-                        logger.info(res['msg'])
+                        print(res["msg"])
+                        logger.info(res["msg"])
         except Exception as ex:
             logger.exception(ex)
 
@@ -307,13 +308,16 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
         if (all_sum + 1 <= int(total_limit)) and (len(connect_user.hkeys(room)) + 1 <= int(room_limit)):
             # 将可以进入队列的数据放入redis的连接用户库中
             connect_user.hset(room, user_id, sid)
-            logger.info("1", "total_limit_number", all_sum + 1)
-            logger.info("%s_limit_number" % room, len(connect_user.hkeys(room)))
-            print("1", "total_limit_number", all_sum + 1)
-            print("%s_limit_number" % room, len(connect_user.hkeys(room)))
+            connect_length = len(connect_user.hkeys(room))
 
-            print("%s当前人数" % room, len(connect_user.hkeys(room)))
-            logger.info("%s当前人数" % room, len(connect_user.hkeys(room)))
+            logger.info(f"1 total_limit_number {all_sum + 1}")
+            logger.info(f"{room}_limit_number {connect_length}")
+
+            print(f"1 total_limit_number {all_sum + 1}")
+            print(f"{room}_limit_number {connect_length}")
+
+            print(f"{room} 当前人数 {connect_length}")
+            logger.info(f"{room} 当前人数 {connect_length}")
             ret["type"] = 1
             ret["msg"] = "建立链接"
             ret["status"] = 1
@@ -334,4 +338,3 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
         tmpstr = hashlib.sha1(tmpstr.encode("utf-8"))
         tmpsign = tmpstr.hexdigest()
         return {"nonce": nonce, "timestamp": timestamp, "signature": tmpsign}
-

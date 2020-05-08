@@ -8,13 +8,14 @@ import string
 import hashlib
 import logging
 import redis
+from simple_settings import settings
 from websocket import status_code as error_code
 
 logger = logging.getLogger(__name__)
 
 log = print
 # sid回放用户信息库
-sid_user_playback = redis.Redis(host="localhost", port=6379, decode_responses=True, db=3)
+sid_user_playback = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=3)
 
 
 # 基于类的名称空间

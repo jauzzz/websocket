@@ -1,5 +1,4 @@
 import socketio
-
 import aiohttp_jinja2
 import jinja2
 from aiocache import caches
@@ -10,11 +9,11 @@ from simple_settings import settings
 from .healthcheck.routes import register_routes as register_heathcheck_routes
 from .index.routes import register_routes as register_index_routes
 from .contrib.middlewares import exception_handler_middleware, version_middleware
-from .settings.base import TEMPLATE_DIR
+from aiohttp.log import ws_logger
 
 
 def build_app(loop=None):
-    app = web.Application(loop=loop, middlewares=get_middlewares())
+    app = web.Application(loop=loop, middlewares=get_middlewares(), logger=ws_logger)
 
     app.on_startup.append(start_plugins)
     app.on_cleanup.append(stop_plugins)
@@ -30,7 +29,7 @@ def build_app(loop=None):
 
 
 def setup_template_routes(app):
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(TEMPLATE_DIR))
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(settings.TEMPLATE_DIR))
 
 
 def register_routes(app):
@@ -47,7 +46,7 @@ def init_websocket(app):
     from websocket.liveroom.events import LiveBaseNamespace
     from websocket.playback.events import PlayBackNamespace
 
-    mgr = socketio.AsyncRedisManager("redis://redis:6379/4")
+    mgr = socketio.AsyncRedisManager(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/4")
     sio = socketio.AsyncServer(async_mode="aiohttp", ping_timeout=62, client_manager=mgr, cors_allowed_origins="*")
     sio.attach(app)
     sio.register_namespace(LiveRoomNamespace("/liveroom"))
