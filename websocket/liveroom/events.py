@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import aiohttp
 import socketio
 import logging
@@ -29,6 +30,9 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
     async def on_connect(self, sid, environ):
         await self.emit("system", {"code": error_code.SUCCESS, "msg": "服务器回调：连接服务器成功"}, room=sid)
 
+    async def emit_msg(self, event, data, room):
+        await self.emit(event, data, room)
+
     async def on_join(self, sid, data):
         # 加入房间异步化
         # 基于类的加入房间
@@ -40,10 +44,14 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
             logger.info(ret)
             # 超出人数
             if ret["type"] == 0:
-                await self.emit(
-                    "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
-                )
-                await self.disconnect(sid)
+                # await self.emit(
+                #     "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
+                # )
+                # await self.disconnect(sid)
+                data = {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}
+                tasks = [self.emit_msg('system', data, room), self.disconnect(sid)]
+                await asyncio.gather(*tasks)
+
             # 建立重复链接
             elif ret["type"] == 2:
                 print("建立重复链接", int(time.time()))
