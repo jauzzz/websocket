@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import asyncio
-import aiohttp
 import socketio
+import aiohttp
 import logging
 import redis
 import time
@@ -10,57 +9,55 @@ import string
 import hashlib
 import requests
 import json
-from simple_settings import settings
+import asyncio
 from websocket import status_code as error_code
 
 log = print
 logger = logging.getLogger(__name__)
 
 # 断开连接用户信息库
-disconnect_user = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=0)
+disconnect_user = redis.Redis(host="localhost", port=6379, decode_responses=True, db=0)
 # 连接用户信息库
-connect_user = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=1)
+connect_user = redis.Redis(host="localhost", port=6379, decode_responses=True, db=1)
 # sid直播用户信息库
-sid_user_live = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True, db=2)
+sid_user_live = redis.Redis(host="localhost", port=6379, decode_responses=True, db=2)
 
 
 # 基于类的名称空间
 class LiveBaseNamespace(socketio.AsyncNamespace):
     # 基于类的连接回调
     async def on_connect(self, sid, environ):
-        await self.emit("system", {"code": error_code.SUCCESS, "msg": "服务器回调：连接服务器成功"}, room=sid)
-
-    async def emit_msg(self, event, data, room):
-        await self.emit(event, data, room)
+        await self.emit("system", {"code": 20000, "msg": "服务器回调：连接服务器成功", "type": 1000}, room=sid)
 
     async def on_join(self, sid, data):
         # 加入房间异步化
         # 基于类的加入房间
         room = data.get("room", "")
         user_id = data.get("user_id", "")
+        print("room_{}_user_id_{}：".format(room, user_id))
         if room and user_id:
             ret = self.join_room_check(room, user_id, sid)
             print(ret)
-            logger.info(ret)
+            print("join_room_check_ret：", ret)
+            print("ret_type:", ret["type"] == 0)
             # 超出人数
             if ret["type"] == 0:
-                # await self.emit(
-                #     "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
-                # )
-                # await self.disconnect(sid)
-                data = {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}
-                tasks = [self.emit_msg('system', data, room), self.disconnect(sid)]
-                await asyncio.gather(*tasks)
-
+                print("加入房间失败,超出最大并发人数限制")
+                await self.emit(
+                    "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
+                )
+                print("准备disconnect")
+                await asyncio.sleep(2)
+                await self.disconnect(sid)
             # 建立重复链接
             elif ret["type"] == 2:
                 print("建立重复链接", int(time.time()))
                 logger.info("建立重复链接")
                 print("新连接", sid)
-                logger.info(f"新连接 {sid}")
+                logger.info("新连接", sid)
                 sid2 = connect_user.hget(room, user_id)
                 print("旧连接", sid2)
-                logger.info(f"旧连接 {sid2}")
+                logger.info("旧连接", sid2)
                 if sid != sid2:
                     # 断开前置链接
                     await self.disconnect(sid2)
@@ -73,7 +70,11 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                 self.enter_room(sid, room)
                 await self.emit(
                     "system",
-                    {"code": error_code.SUCCESS, "msg": "服务器重复链接回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room)},
+                    {
+                        "code": error_code.SUCCESS,
+                        "msg": "服务器重复链接回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room),
+                        "type": 1001,
+                    },
                     room=sid,
                 )
                 logger.info("服务器重复链接回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room))
@@ -98,6 +99,7 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                             {
                                 "code": error_code.SUCCESS,
                                 "msg": "服务器断线重连回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room),
+                                "type": 1001,
                             },
                             room=sid,
                         )
@@ -107,7 +109,11 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                         logger.info("正常连接")
                         await self.emit(
                             "system",
-                            {"code": error_code.SUCCESS, "msg": "服务器回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room)},
+                            {
+                                "code": error_code.SUCCESS,
+                                "msg": "服务器回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room),
+                                "type": 1001,
+                            },
                             room=sid,
                         )
                         logger.info("服务器回调：用户-<{}>加入直播间-<{}>加入成功".format(user_id, room))
@@ -174,7 +180,7 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                 keyname2 = "%s_limit_number" % room
                 print("3", keyname1, all_sum)
                 print(keyname2, len(connect_user.hkeys(room)))
-                logger.info(f"3 {keyname1} {all_sum}")
+                logger.info("3", keyname1, all_sum)
                 logger.info(keyname2, len(connect_user.hkeys(room)))
 
             # 从sid库中删除
@@ -232,6 +238,7 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
         1:可以进入，
         2:建立重复链接，断开旧连接，进入新连接
         """
+        logger.info("room_{}_user_id_{}_sid_{}：".format(room, user_id, sid))
         # 判断指定房间是否包含指定的用户
         if connect_user.hexists(room, user_id):
             # 判断断开连接db中是否包含指定用户，不包含则判断为重复建立连接
@@ -272,8 +279,10 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
                 nu1 = res["total_limit"]
                 connect_user.set(keyname1, nu1)
                 log("获取全局最大人数成功")
+                logger.info("获取全局最大人数成功:", nu1)
             else:
                 log(res["msg"])
+                logger.info("获取全局最大人数错误:", res["msg"])
 
         # 判断单场直播最大人数是否存在
         if not connect_user.exists(keyname3):
@@ -297,14 +306,17 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
             nu2 = 0
             if res["code"] == 20000:
                 nu2 = res["liveroom_limit_number"]
-                log("获取单场直播间人数限制成功")
+                logger.info("获取单场直播间人数限制成功1:", nu2)
 
             # 测试环境
             connect_user.set(keyname3, nu2)
+            logger.info("获取单场直播间人数限制成功2:", nu2)
             # 判断总接入数字段是否存在
 
         total_limit = connect_user.get(keyname1)
+        logger.info("keyname1_total_limit:", total_limit)
         room_limit = connect_user.get(keyname3)
+        logger.info("keyname3_room_limit:", room_limit)
         li = connect_user.hkeys("live_pause_live")
         # li = ["548589", ]
         all_sum = 0
@@ -313,26 +325,41 @@ class LiveBaseNamespace(socketio.AsyncNamespace):
             all_sum += i
         print(all_sum)
 
+        logger.info(
+            "all_sum:{}_total_limit:{}_connect_user:{}_room_limit:{}".format(
+                all_sum, total_limit, len(connect_user.hkeys(room)), room_limit
+            )
+        )
+        print(
+            "all_sum",
+            all_sum,
+            "_total_limit",
+            total_limit,
+            "connect_user",
+            len(connect_user.hkeys(room)),
+            "room_limit",
+            room_limit,
+        )
         if (all_sum + 1 <= int(total_limit)) and (len(connect_user.hkeys(room)) + 1 <= int(room_limit)):
             # 将可以进入队列的数据放入redis的连接用户库中
             connect_user.hset(room, user_id, sid)
-            connect_length = len(connect_user.hkeys(room))
+            logger.info("1", "total_limit_number", all_sum + 1)
+            logger.info("%s_limit_number" % room, len(connect_user.hkeys(room)))
+            print("1", "total_limit_number_next_1", all_sum + 1)
+            print("%s_limit_number_next_1" % room, len(connect_user.hkeys(room)))
 
-            logger.info(f"1 total_limit_number {all_sum + 1}")
-            logger.info(f"{room}_limit_number {connect_length}")
-
-            print(f"1 total_limit_number {all_sum + 1}")
-            print(f"{room}_limit_number {connect_length}")
-
-            print(f"{room} 当前人数 {connect_length}")
-            logger.info(f"{room} 当前人数 {connect_length}")
+            print("%s当前人数" % room, len(connect_user.hkeys(room)))
+            logger.info("%s当前人数_next_2" % room, len(connect_user.hkeys(room)))
             ret["type"] = 1
             ret["msg"] = "建立链接"
             ret["status"] = 1
             return ret
         else:
+            print("%s超出人数了" % room, user_id)
+            logger.info("%s超出人数了" % room, user_id)
             ret["type"] = 0
             ret["msg"] = "超出人数"
+            logger.info("超出人数 ret:", ret)
             return ret
 
     def get_callback_signature(self):
