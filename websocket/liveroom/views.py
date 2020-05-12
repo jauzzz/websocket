@@ -106,24 +106,24 @@ class LiveRoomNamespace(AsyncNamespace):
         assert res["code"] == 20000
         return res["liveroom_limit_number"]
 
-    async def get_system_limit(self) -> int:
+    async def get_system_limit(self, connect_db) -> int:
         keyname = self.system_limit_keyname
-        if not await self.connect_user.exists(keyname):
+        if not await connect_db.exists(keyname):
             result = self.request_system_limit()
-            await self.connect_user.set(keyname, result)
-        return await self.connect_user.get(keyname)
+            await connect_db.set(keyname, result)
+        return await connect_db.get(keyname)
 
-    async def get_room_limit(self, room_id: str) -> int:
+    async def get_room_limit(self, room_id: str, connect_db) -> int:
         pattern = self.room_limit_keyname
         keyname = pattern % room_id
-        if not await self.connect_user.exists(keyname):
+        if not await connect_db.exists(keyname):
             result = self.request_room_limit(room_id)
-            await self.connect_user.set(keyname, result)
-        return await self.connect_user.get(keyname)
+            await connect_db.set(keyname, result)
+        return await connect_db.get(keyname)
 
     async def get_room_max_user(self, room_id: str) -> int:
-        max_user = int(await self.get_system_limit())
-        room_max_user = int(await self.get_room_limit(room_id))
+        max_user = int(await self.get_system_limit(connect_db))
+        room_max_user = int(await self.get_room_limit(room_id, connect_db))
         return max(max_user, room_max_user)
 
     async def get_room_exists_user(self, room_id: str, connect_db) -> int:
@@ -131,7 +131,7 @@ class LiveRoomNamespace(AsyncNamespace):
 
     async def exceed_max_user_check(self, uid, room_id, connect_db) -> bool:
         """ 超过最大房间人数检测 """
-        max_user = await self.get_room_max_user(room_id)
+        max_user = await self.get_room_max_user(room_id, connect_db)
         room_user = await self.get_room_exists_user(room_id, connect_db)
 
         # for test
