@@ -16,7 +16,6 @@ services:
     environment:
       - VIRTUAL_HOST=socketio.yingliboke.cn
       - USE_IP_HASH=1
-      - IP_HASH=1
     depends_on:
       - redis
     command: ["make", "run"]
