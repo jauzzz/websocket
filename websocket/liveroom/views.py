@@ -121,7 +121,7 @@ class LiveRoomNamespace(AsyncNamespace):
             await connect_db.set(keyname, result)
         return await connect_db.get(keyname)
 
-    async def get_room_max_user(self, room_id: str) -> int:
+    async def get_room_max_user(self, room_id: str, connect_db) -> int:
         max_user = int(await self.get_system_limit(connect_db))
         room_max_user = int(await self.get_room_limit(room_id, connect_db))
         return max(max_user, room_max_user)

@@ -1,21 +1,25 @@
 version: "3"
 
 services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./nginx.tmpl:/app/nginx.tmpl
+
   socketio:
     build:
       context: .
     image: broadcast_back_end_socketio
-    container_name: websocket.socketio
+    environment:
+      - VIRTUAL_HOST=socketio.local
+      - USE_IP_HASH=1
+      - IP_HASH=1
     depends_on:
       - redis
-    ports:
-      - "8200:8200"
     command: ["make", "run"]
-    sysctls:
-      - net.core.somaxconn=8192
-      - net.ipv4.tcp_syncookies=0
-      - net.ipv4.tcp_max_syn_backlog=2048
-      # - net.ipv4.tcp_abort_on_overflow=1
 
   redis:
     image: redis:5.0

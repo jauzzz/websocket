@@ -14,4 +14,6 @@ RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ --default-timeout=100
 COPY . /app
 WORKDIR /app
 
+EXPOSE 8200
+
 CMD [ "make", "run" ]
