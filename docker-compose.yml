@@ -1,7 +1,7 @@
 version: "3"
 
 services:
-  nginx-proxy:
+  nginx:
     image: jwilder/nginx-proxy
     ports:
       - "80:80"
@@ -14,7 +14,7 @@ services:
       context: .
     image: broadcast_back_end_socketio
     environment:
-      - VIRTUAL_HOST=socketio.local
+      - VIRTUAL_HOST=socketio.yingliboke.cn
       - USE_IP_HASH=1
       - IP_HASH=1
     depends_on:
