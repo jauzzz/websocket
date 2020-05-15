@@ -8,6 +8,7 @@ services:
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./nginx.tmpl:/app/nginx.tmpl
+      - ./nginx.conf:/etc/nginx/nginx.conf    
 
   socketio:
     build:
