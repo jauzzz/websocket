@@ -46,3 +46,12 @@ release-major: ## Create major release
 
 %-shell: ## Container shell
 	docker-compose -f docker-compose.yml exec $* sh
+
+up:
+	docker-compose -f docker-compose.yml up -d --build
+
+down:
+	docker-compose -f docker-compose.yml down -v
+	
+scale:
+	docker-compose -f docker-compose.yml scale socketio=2

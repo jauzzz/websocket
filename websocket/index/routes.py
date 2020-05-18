@@ -1,8 +1,8 @@
-from .views import IndexView, EnterView, EnterPlaybackView, get_room_number
+from .views import Index, Enter, EnterPlayback, routes
 
 
 def register_routes(app):
-    app.router.add_get("", IndexView, name="index")
-    app.router.add_get("/chat", EnterView, name="Enter")
-    app.router.add_get("/playback", EnterPlaybackView, name="EnterPlayback")
-    app.router.add_get("/number/", get_room_number, name="number")
+    app.router.add_get("", Index, name="index")
+    app.router.add_get("/chat", Enter, name="Enter")
+    app.router.add_get("/playback", EnterPlayback, name="EnterPlayback")
+    app.router.add_routes(routes)

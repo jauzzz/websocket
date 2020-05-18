@@ -84,7 +84,7 @@ async def test_server(number):
 
 
 async def test(uid):
-    client = socketio.AsyncClient()
+    client = socketio.AsyncClient(request_timeout=20)
     room_id = random.choice(room_ids)
     await test_user(client, uid, room_id)
 
@@ -104,7 +104,7 @@ async def test_join(client, uid, room_id):
     try:
         # await asyncio.sleep(random.randint(1, 5))
         # await client.connect("ws://beta.yingliboke.cn:2345/", namespaces=["/live_socket"])
-        await client.connect("ws://127.0.0.1", namespaces=["/live_socket"], headers={'Host': 'socketio.yingliboke.cn'})
+        await client.connect("ws://127.0.0.1:6000", namespaces=["/live_socket"], headers={'Host': 'socketio.yingliboke.cn'})
         await client.emit("join", {"room": room_id, "user_id": uid}, namespace="/live_socket")
         clients.append(client.sid)
         join_clients.append(client.sid)
