@@ -3,10 +3,10 @@ import json
 import pytest
 from aiohttp.web import HTTPGatewayTimeout
 
-from websocket.contrib.exceptions import APIException
-from websocket.contrib.middlewares import exception_handler_middleware
-from websocket.contrib.response import JSONResponse
-from websocket.version import __version__
+from ws.contrib.exceptions import APIException
+from ws.contrib.middlewares import exception_handler_middleware
+from ws.contrib.response import JSONResponse
+from ws.version import __version__
 
 httperror_message = 'Http error message'
 

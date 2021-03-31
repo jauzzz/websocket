@@ -2,9 +2,9 @@ import logging
 
 from aiohttp import web
 
-from websocket.contrib.exceptions import APIException
-from websocket.contrib.response import JSONResponse
-from websocket.version import __version__
+from ws.contrib.exceptions import APIException
+from ws.contrib.response import JSONResponse
+from ws.version import __version__
 
 logger = logging.getLogger(__name__)
 

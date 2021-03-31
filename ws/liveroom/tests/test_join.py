@@ -102,7 +102,7 @@ async def test_join(client, uid, room_id):
     t1 = time.perf_counter()
 
     try:
-        # await asyncio.sleep(random.randint(1, 5))
+        await asyncio.sleep(random.randint(1, 5) / 100)
         # await client.connect("ws://beta.yingliboke.cn:2345/", namespaces=["/live_socket"])
         await client.connect("ws://127.0.0.1:8200", namespaces=["/liveroom"], headers={'Host': 'socketio.yingliboke.cn'})
         await client.emit("join", {"room_id": room_id, "user_id": uid}, namespace="/liveroom")

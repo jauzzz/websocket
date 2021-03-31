@@ -1,4 +1,4 @@
-from websocket.contrib.exceptions import APIException
+from ws.contrib.exceptions import APIException
 
 
 class TestAPIException:

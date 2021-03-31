@@ -6,7 +6,7 @@ from aiohttp.client_reqrep import ClientRequest
 from simple_settings import settings
 from yarl import URL
 
-from websocket import app as _app
+from ws import app as _app
 
 
 @pytest.fixture(scope='session')

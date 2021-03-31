@@ -8,19 +8,11 @@ import hashlib
 import aioredis
 from socketio import AsyncNamespace
 from simple_settings import settings
-from websocket import status_code as error_code
+from ws import status_code as error_code
 from loguru import logger
 
 
 class LiveRoomNamespace(AsyncNamespace):
-
-    # stat count
-    connect_count = 0
-    disconnect_count = 0
-    join_count = 0
-    leave_count = 0
-    success_join_count = 0
-    success_leave_count = 0
 
     # redis keyname
     system_limit_keyname = "total_limit"
@@ -28,7 +20,6 @@ class LiveRoomNamespace(AsyncNamespace):
 
     # init flag
     _init_redis = False
-    redis_lock = asyncio.Lock()
 
     async def init_redis(self):
         try:
@@ -36,7 +27,7 @@ class LiveRoomNamespace(AsyncNamespace):
                 (settings.REDIS_HOST, settings.REDIS_PORT), db=0, encoding="utf-8"
             )
             self.connect_user = await aioredis.create_redis_pool(
-                (settings.REDIS_HOST, settings.REDIS_PORT), db=1, encoding="utf-8", minsize=1, maxsize=1
+                (settings.REDIS_HOST, settings.REDIS_PORT), db=1, encoding="utf-8"
             )
             self.sid_user_live = await aioredis.create_redis_pool(
                 (settings.REDIS_HOST, settings.REDIS_PORT), db=2, encoding="utf-8"
@@ -47,29 +38,22 @@ class LiveRoomNamespace(AsyncNamespace):
 
     # ------------ stat --------------
     def stat_connect(self, sid):
-        # logger.info(f"connecting {sid}")
-        self.connect_count += 1
+        logger.info(f"connecting {sid}")
 
     def stat_disconnect(self, sid):
-        # logger.info(f"disconnecting {sid}")
-        self.disconnect_count += 1
+        logger.info(f"disconnecting {sid}")
 
     def stat_join(self, sid):
-        # logger.info(f"joining {sid}")
-        self.join_count += 1
+        logger.info(f"joining {sid}")
 
     def stat_leave(self, sid):
-        # logger.info(f"leaving {sid}")
-        self.leave_count += 1
-        self.disconnect_count += 1
+        logger.info(f"leaving {sid}")
 
     def stat_success_join(self, sid, uid, room_id):
         logger.info(f"用户 {uid} 加入房间 {room_id}")
-        self.success_join_count += 1
 
     def stat_success_leave(self, sid, uid, room_id):
         logger.info(f"用户 {uid} 退出房间 {room_id}")
-        self.success_leave_count += 1
 
     # ------------ utils ---------------
     def get_callback_signature(self):
@@ -126,9 +110,10 @@ class LiveRoomNamespace(AsyncNamespace):
         return await self.connect_user.get(keyname)
 
     async def get_room_max_user(self, room_id: str) -> int:
-        max_user = int(await self.get_system_limit())
-        room_max_user = int(await self.get_room_limit(room_id))
-        return min(max_user, room_max_user)
+        # max_user = int(await self.get_system_limit())
+        # room_max_user = int(await self.get_room_limit(room_id))
+        # return min(max_user, room_max_user)
+        return 1200
 
     async def get_room_exists_user(self, room_id: str) -> int:
         return len(await self.connect_user.hkeys(room_id))
@@ -191,7 +176,9 @@ class LiveRoomNamespace(AsyncNamespace):
             await self.init_redis()
 
         self.stat_connect(sid)
-        await self.emit("system", {"code": error_code.SUCCESS, "msg": "服务器回调：连接服务器成功"}, room=sid)
+        await self.emit(
+            "system", {"code": error_code.SUCCESS, "msg": "服务器回调：连接服务器成功"}, room=sid
+        )
 
     async def on_disconnect(self, sid):
         # TODO: Check later
@@ -230,13 +217,19 @@ class LiveRoomNamespace(AsyncNamespace):
 
         # 参数检测
         if room_id is None or uid is None:
-            await self.emit("system", {"code": error_code.PARAMETER_IS_NOT_COMPLETE, "msg": "加入房间失败,参数不全"}, room=sid)
+            await self.emit(
+                "system",
+                {"code": error_code.PARAMETER_IS_NOT_COMPLETE, "msg": "加入房间失败,参数不全"},
+                room=sid,
+            )
             await self.disconnect(sid)
 
         # 重复加入检测
         duplicate_flag = await self.duplicate_join_check(uid, room_id)
         if duplicate_flag is True:
-            await self.emit("system", {"code": error_code.SUCCESS, "msg": "加入房间失败,建立重复链接"}, room=sid)
+            await self.emit(
+                "system", {"code": error_code.SUCCESS, "msg": "加入房间失败,建立重复链接"}, room=sid
+            )
             await self.disconnect(sid)
 
         # 重连检测(不需要做人数判断)
@@ -248,21 +241,25 @@ class LiveRoomNamespace(AsyncNamespace):
             self.stat_success_join(sid, uid, room_id)
         else:
             # 最大人数检测
-            async with self.redis_lock:
-                max_user = await self.get_room_max_user(room_id)
-                room_user = await self.get_room_exists_user(room_id)
-                logger.info(f"房间 {room_id}: {room_user} 人 | 最大 {max_user}")
-                if room_user < max_user:
-                    leave_tag = 1
-                    self.enter_room(sid, room_id)
-                    await self.update_user_join_info(sid, uid, room_id, leave_tag)
-                    self.stat_success_join(sid, uid, room_id)
-                else:
-                    await self.emit(
-                        "system", {"code": error_code.OUT_OF_LIMITE_USER_COUNT, "msg": "加入房间失败,超出最大并发人数限制"}, room=sid
-                    )
-                    await self.disconnect(sid)
-                    logger.error(f"{sid} {uid} {room_id} join failed")
+            max_user = await self.get_room_max_user(room_id)
+            room_user = await self.get_room_exists_user(room_id)
+            logger.info(f"房间 {room_id}: {room_user} 人 | 最大 {max_user}")
+            if room_user < max_user:
+                leave_tag = 1
+                self.enter_room(sid, room_id)
+                await self.update_user_join_info(sid, uid, room_id, leave_tag)
+                self.stat_success_join(sid, uid, room_id)
+            else:
+                await self.emit(
+                    "system",
+                    {
+                        "code": error_code.OUT_OF_LIMITE_USER_COUNT,
+                        "msg": "加入房间失败,超出最大并发人数限制",
+                    },
+                    room=sid,
+                )
+                await self.disconnect(sid)
+                logger.error(f"{sid} {uid} {room_id} join failed")
 
     async def on_leave(self, sid, data):
         self.stat_leave(sid)
@@ -275,9 +272,17 @@ class LiveRoomNamespace(AsyncNamespace):
         if room_id and uid:
             await self.sid_user_live.hset(sid, "leave_tag", 2)
             # logger.info(f"用户-<{uid}>-从直播间-<{room_id}>离开")
-            await self.emit("system", {"code": error_code.SUCCESS, "msg": f"用户-<{uid}>-从直播间-<{room_id}>离开"}, room=sid)
+            await self.emit(
+                "system",
+                {"code": error_code.SUCCESS, "msg": f"用户-<{uid}>-从直播间-<{room_id}>离开"},
+                room=sid,
+            )
             await self.disconnect(sid)
             self.stat_success_leave(sid, uid, room_id)
         else:
             logger.error(f"leave error: {sid} room[{room_id}] uid[{uid}]")
-            await self.emit("system", {"code": error_code.PARAMETER_IS_NOT_COMPLETE, "msg": "加入房间失败,参数不全"}, room=sid)
+            await self.emit(
+                "system",
+                {"code": error_code.PARAMETER_IS_NOT_COMPLETE, "msg": "加入房间失败,参数不全"},
+                room=sid,
+            )

@@ -11,7 +11,7 @@ import aioredis
 import asyncio
 from loguru import logger
 from simple_settings import settings
-from websocket import status_code as error_code
+from ws import status_code as error_code
 
 
 # 基于类的名称空间

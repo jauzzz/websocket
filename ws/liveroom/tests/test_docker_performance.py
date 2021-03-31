@@ -24,13 +24,6 @@ def stat():
     logger.debug(f"{(sum(times) / len(times)):0.5f}")
 
 
-def boxmullersampling(mu=1, sigma=1, size=1):
-    u = np.random.uniform(size=size)
-    v = np.random.uniform(size=size)
-    z = np.sqrt(-2 * np.log(u)) * np.cos(2 * np.pi * v)
-    return mu + z * sigma
-
-
 async def test_server(number):
     """
     ipython for test
@@ -61,13 +54,13 @@ async def test(uid):
 async def test_join(client, uid, room_id):
     # wait time
     # wait = abs(boxmullersampling()[0])
-    wait = int(uid / 1000)
+    wait = int(uid / 250)
     await asyncio.sleep(wait)
 
     try:
         t1 = time.perf_counter()
         await client.connect(
-            "ws://127.0.0.1:8200", namespaces=["/liveroom"], headers={"Host": "socketio.yingliboke.cn"}
+            "ws://127.0.0.1:6000", namespaces=["/liveroom"], headers={"Host": "socketio.yingliboke.cn"}
         )
         # await client.connect(
         #     "ws://socketio.yingliboke.cn", namespaces=["/liveroom"], headers={"Host": "socketio.yingliboke.cn"}

@@ -4,7 +4,7 @@ from enum import Enum
 
 import pytest
 
-from websocket.contrib.json import JSONEncoder
+from ws.contrib.json import JSONEncoder
 
 
 class _SimpleEnum(Enum):

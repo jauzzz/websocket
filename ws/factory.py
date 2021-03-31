@@ -42,9 +42,9 @@ def get_middlewares():
 
 
 def init_websocket(app):
-    from websocket.liveroom.views import LiveRoomNamespace
-    from websocket.liveroom.events import LiveBaseNamespace
-    from websocket.playback.events import PlayBackNamespace
+    from ws.liveroom.views import LiveRoomNamespace
+    from ws.liveroom.events import LiveBaseNamespace
+    from ws.playback.events import PlayBackNamespace
 
     mgr = socketio.AsyncRedisManager(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/4")
     sio = socketio.AsyncServer(async_mode="aiohttp", ping_timeout=62, client_manager=mgr, cors_allowed_origins="*")
