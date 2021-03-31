@@ -4,6 +4,9 @@ run:
 dev.run:
 	@gunicorn websocket:app --bind 0.0.0.0:8200 --worker-class aiohttp.worker.GunicornUVLoopWebWorker -e SIMPLE_SETTINGS=websocket.settings.development
 
+dev.worker:
+	@gunicorn --workers=8 --worker-connections=6000 --backlog=8192 websocket:app --bind 0.0.0.0:8200 --worker-class aiohttp.worker.GunicornUVLoopWebWorker -e SIMPLE_SETTINGS=websocket.settings.development
+
 requirements-test:
 	@pip install -r requirements/test.txt
 
@@ -55,3 +58,6 @@ down:
 	
 scale:
 	docker-compose -f docker-compose.yml scale socketio=2
+
+ulimit:
+	sudo sysctl -w kern.maxfiles=1048600 && sudo sysctl -w kern.maxfilesperproc=1048576
