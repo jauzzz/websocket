@@ -1,5 +1,5 @@
-import aioredis
 import aiohttp_jinja2
+import aioredis
 from aiohttp import web
 from loguru import logger
 from simple_settings import settings

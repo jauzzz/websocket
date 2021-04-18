@@ -1,4 +1,4 @@
-from .views import Index, Enter, EnterPlayback, routes
+from .views import Enter, EnterPlayback, Index, routes
 
 
 def register_routes(app):

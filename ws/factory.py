@@ -1,19 +1,22 @@
-import socketio
 import aiohttp_jinja2
 import jinja2
+import socketio
 from aiocache import caches
 from aiohttp import web
+from aiohttp.log import ws_logger
 from aiohttp_swagger import setup_swagger
 from simple_settings import settings
 
+from .contrib.middlewares import exception_handler_middleware, version_middleware
 from .healthcheck.routes import register_routes as register_heathcheck_routes
 from .index.routes import register_routes as register_index_routes
-from .contrib.middlewares import exception_handler_middleware, version_middleware
-from aiohttp.log import ws_logger
+from .aiolive.routes import register_routes as register_aiolive_routes
 
 
 def build_app(loop=None):
-    app = web.Application(loop=loop, middlewares=get_middlewares(), logger=ws_logger)
+    app = web.Application(
+        loop=loop, middlewares=get_middlewares(), logger=ws_logger, debug=True
+    )
 
     app.on_startup.append(start_plugins)
     app.on_cleanup.append(stop_plugins)
@@ -35,6 +38,7 @@ def setup_template_routes(app):
 def register_routes(app):
     register_heathcheck_routes(app)
     register_index_routes(app)
+    register_aiolive_routes(app)
 
 
 def get_middlewares():
@@ -42,16 +46,19 @@ def get_middlewares():
 
 
 def init_websocket(app):
-    from ws.liveroom.views import LiveRoomNamespace
-    from ws.liveroom.events import LiveBaseNamespace
-    from ws.playback.events import PlayBackNamespace
+    from ws.live.events import LiveRoomNamespace
 
-    mgr = socketio.AsyncRedisManager(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/4")
-    sio = socketio.AsyncServer(async_mode="aiohttp", ping_timeout=62, client_manager=mgr, cors_allowed_origins="*")
+    mgr = socketio.AsyncRedisManager(
+        f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/4"
+    )
+    sio = socketio.AsyncServer(
+        async_mode="aiohttp",
+        ping_timeout=62,
+        client_manager=mgr,
+        cors_allowed_origins="*",
+    )
     sio.attach(app)
     sio.register_namespace(LiveRoomNamespace("/liveroom"))
-    sio.register_namespace(LiveBaseNamespace("/live_socket"))
-    sio.register_namespace(PlayBackNamespace("/play_back_socket"))
 
 
 async def start_plugins(app):
